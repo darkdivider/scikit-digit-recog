@@ -22,7 +22,7 @@ def train(data, model_parameters, model='svc'):
     clf.fit(X, y)
     return clf
 
-def split_train_dev_test(X, y, test_size = 0.25, dev_size = 0.25):
+def split_train_dev_test(X, y, test_size = 0.25, dev_size = 0.25,):
     # display a set of samples
     _, axes = plt.subplots(nrows=1, ncols=4, figsize=(10, 3))
     for ax, image, label in zip(axes, X, y):
@@ -32,20 +32,35 @@ def split_train_dev_test(X, y, test_size = 0.25, dev_size = 0.25):
 
     # hyperparameters
     train_parameters = {'svc':{'gamma':0.001},
-                        'split':{'test_size':0.66,
-                                'shuffle':True}}
+                            'split_train_test':{'test_size':test_size + dev_size,
+                                    'shuffle':True},
+                            'split_dev_test':{'test_size':test_size/(dev_size+test_size),
+                                            "shuffle": True}}
 
     # data split for testing and training
     X_train, X_test, y_train, y_test = train_test_split(flatten_X(X),
                                                         y, 
-                                                        **train_parameters['split'])
+                                                        **train_parameters['split_train_test'])
+    
+    X_dev, X_test, y_dev, y_test = train_test_split(flatten_X(X),
+                                                        y, 
+                                                        **train_parameters['split_dev_test'])
 
     # train the classifier of train dataset
     clf = train((X_train, y_train), train_parameters['svc'])
 
-    predict_and_eval(clf, X_test, y_test)
-
+    # predict_and_eval(clf, X_test, y_test)
+    acc_train = check_acc(clf, X_train, y_train)
+    acc_dev = check_acc(clf, X_dev, y_dev)
+    acc_test = check_acc(clf, X_test, y_test)
+    print(f'train_acc: {acc_train:0.3f}',end=' ')
+    print(f'dev_acc: {acc_dev:0.3f}',end= '')
+    print(f'test_acc: {acc_test:0.3f}')
     return clf
+
+def check_acc(model, X_test, y_test):
+    predicted = model.predict(X_test)
+    return (predicted==y_test).sum()/len(y_test)
 
 def predict_and_eval(model, X_test, y_test):
     # Predict the value of the digit on the test subset
@@ -85,3 +100,31 @@ def predict_and_eval(model, X_test, y_test):
         "Classification report rebuilt from confusion matrix(test):\n"
         f"{metrics.classification_report(y_true, y_pred)}\n"
     )
+
+def gen_hparams(Cs, gammas):
+    h_params = sum([[(c,gamma) for c in Cs] for gamma in gammas],[])
+    return h_params
+
+def train_dev_test_split(X, y, test_size, dev_size):
+    X_train, X_test, y_train, y_test = train_test_split(flatten_X(X),y, test_size=test_size+dev_size, shuffle=False)
+    X_test, X_dev,y_test, y_dev = train_test_split(X_test, y_test, test_size=test_size/(test_size+dev_size), shuffle=False)
+    return X_train, X_dev, X_test, y_train, y_dev, y_test
+
+def tune_params(X_train, y_train, X_dev, y_dev, all_param_combs):
+    max_dev_acc=0
+    best_clf = None
+    best_h_params = None
+    for c, gamma in all_param_combs:
+        model_params = {'C': c, 'gamma': gamma}
+        clf = train((X_train, y_train), model_params)
+        dev_acc = check_acc(clf, X_dev, y_dev)
+        if dev_acc>max_dev_acc:
+            max_dev_acc = dev_acc
+            best_clf = clf
+            best_h_params=(c, gamma)
+        # print(f'c:{c}, gamma:{gamma}, dev_acc:{dev_acc:0.3f}, best_acc = {max_dev_acc:0.3f}')
+    train_acc = check_acc(clf, X_train, y_train)
+    print(f'best_h_params : c: {c}, gamma: {gamma},\ntrain_acc: {train_acc:0.3f}, dev_acc:{max_dev_acc:0.3f}', end = ', ')
+    return best_clf, best_h_params
+
+
