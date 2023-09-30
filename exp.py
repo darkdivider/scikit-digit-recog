@@ -23,6 +23,8 @@ import utils
 
 # download dataset
 digits = datasets.load_digits()
+print(f'Number of total samples in dataset: {digits.target.__len__()}');
+print(f'size of images: {digits.images[0].shape}')
 
 # combination sof test sizes and dev sizes
 test_sizes =[0.1, 0.2, 0.3];
