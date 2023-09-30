@@ -20,6 +20,8 @@ jobs:
       - run: echo "🍏 This job's status is ${{ job.status }}."
       - name: Install dep
         run:  pip3 install --no-cache-dir -r requirements.txt
+        name: Run pytest
+        run: pytest
       - name: Run test cases
         run: python exp.py
       - run: echo "I know where actions_demo.yml file is ...this echo"
