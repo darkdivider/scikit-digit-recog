@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 
 # Import datasets, classifiers and performance metrics
 from sklearn import datasets
+from sklearn.metrics import confusion_matrix
 
 # utility functions
 import utils
@@ -48,5 +49,14 @@ for test_size, dev_size in test_dev_combs:
     clf_prod = utils.tune_params(digits.images, digits.target, test_size, dev_size, h_param_combs['svm'], shuffle=True)
     clf_new = utils.tune_params(digits.images, digits.target, test_size, dev_size, h_param_combs['tree'], 
                               'tree', ['criterion','max_depth'],True)
+    y_pred_prod = clf_prod.predict(utils.flatten_X(digits.images))
+    y_pred_new = clf_new.predict(utils.flatten_X(digits.images))
+    print('Confusion Matrix for svm (production)')
+    print(confusion_matrix(digits.target, y_pred_prod))
+    print('Confusion Matrix for tree (new)')
+    print(confusion_matrix(digits.target, y_pred_new))
+    print('Confusion matrix between prod and new models')
+    print(confusion_matrix(y_pred_prod==digits.target, y_pred_new==digits.target))
+
     # import pdb;pdb.set_trace();
 

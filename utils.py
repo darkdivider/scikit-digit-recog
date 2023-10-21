@@ -177,6 +177,7 @@ def tune_params(X, y, test_size, dev_size, all_param_combs, model_type = 'svc', 
     print(f"test\t :{mean(accs['test_acc']):0.3f} +/- {std(accs['test_acc']):0.3f}")
     joblib.dump(accs, filename)
     joblib.dump(best_clf, 'models/'+model_type+'.pkl')
+    # import pdb;pdb.set_trace();
     return best_clf
 
 def mean(L):
