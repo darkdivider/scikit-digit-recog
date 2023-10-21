@@ -1,11 +1,14 @@
 from sklearn import svm, metrics
+from sklearn.tree import DecisionTreeClassifier as dtc
+from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
+import joblib
+import os
 
 # flatten function for sklearn digits
 def flatten_X(X):
     return X.reshape(len(X),-1)
-
 
 # training on data based on training parameters
 def train(data, model_parameters, model='svc'):
@@ -15,6 +18,10 @@ def train(data, model_parameters, model='svc'):
     if model=='svc':
         # classifier is initiated as an svm with model parameters
         clf=svm.SVC(**model_parameters)
+    elif model=='tree':
+        # classifier is initiated as an tree with model parameters
+        clf = dtc(**model_parameters)
+        # pdb.set_trace()
     else:
         print(f'Model name "{model}" recieved. Not found.')
         return
@@ -101,30 +108,84 @@ def predict_and_eval(model, X_test, y_test):
         f"{metrics.classification_report(y_true, y_pred)}\n"
     )
 
-def gen_hparams(Cs, gammas):
-    h_params = sum([[(c,gamma) for c in Cs] for gamma in gammas],[])
-    return h_params
+def get_next_comb(comb_index, lens):
+    for i in range(len(lens)):
+        if comb_index[i]<lens[i]-1:
+            comb_index[i]+=1
+            while i:
+                i-=1
+                comb_index[i]=0
+            return comb_index
+    return None
 
-def train_dev_test_split(X, y, test_size, dev_size):
-    X_train, X_test, y_train, y_test = train_test_split(flatten_X(X),y, test_size=test_size+dev_size, shuffle=False)
-    X_test, X_dev,y_test, y_dev = train_test_split(X_test, y_test, test_size=test_size/(test_size+dev_size), shuffle=False)
+def get_combinations(params):
+    lens = [len(param) for param in params]
+    comb_index=[0 for _ in lens]
+    comb_indexes = [comb_index]
+    
+    while True:
+        comb_index=get_next_comb(list(comb_index), lens)
+        if comb_index!=None:
+            comb_indexes.append(comb_index)
+        else:
+            break
+    return [[params[i][j] for i,j in enumerate(comb_indexes[k])] for k in range(len(comb_indexes))]
+
+def gen_hparams(params_list):
+    return get_combinations(params_list)
+
+def train_dev_test_split(X, y, test_size, dev_size, shuffle):
+    X_train, X_test, y_train, y_test = train_test_split(flatten_X(X),y, test_size=test_size+dev_size, shuffle=shuffle)
+    X_test, X_dev,y_test, y_dev = train_test_split(X_test, y_test, test_size=test_size/(test_size+dev_size), shuffle=shuffle)
+    # pdb.set_trace()
     return X_train, X_dev, X_test, y_train, y_dev, y_test
 
-def tune_params(X_train, y_train, X_dev, y_dev, all_param_combs):
-    max_dev_acc=0
-    best_clf = None
-    best_h_params = None
-    for c, gamma in all_param_combs:
-        model_params = {'C': c, 'gamma': gamma}
-        clf = train((X_train, y_train), model_params)
-        dev_acc = check_acc(clf, X_dev, y_dev)
-        if dev_acc>max_dev_acc:
-            max_dev_acc = dev_acc
-            best_clf = clf
-            best_h_params=(c, gamma)
-        # print(f'c:{c}, gamma:{gamma}, dev_acc:{dev_acc:0.3f}, best_acc = {max_dev_acc:0.3f}')
-    train_acc = check_acc(clf, X_train, y_train)
-    print(f'best_h_params : c: {c}, gamma: {gamma},\ntrain_acc: {train_acc:0.3f}, dev_acc:{max_dev_acc:0.3f}', end = ', ')
-    return best_clf, best_h_params
+def tune_params(X, y, test_size, dev_size, all_param_combs, model_type = 'svc', param_key = ['C', 'gamma'], shuffle=False):
+    if not os.path.exists('models'):
+        os.makedirs('models')
+    filename = 'models/accs_'+model_type+'.pkl'
+    accs = {'train_acc':[],'dev_acc':[],'test_acc':[]}
+    for _ in range(10):
+        X_train, X_dev, X_test, y_train, y_dev, y_test = train_dev_test_split(X, y, test_size, dev_size, shuffle)
+        dev_acc=0
+        max_dev_acc=0
+        best_clf = None
+        best_h_params = None
+        for param_comb in all_param_combs:
+            model_params = {key:value for key,value in zip(param_key, param_comb)}
+            clf = train((X_train, y_train), model_params, model_type)
+            try:
+                dev_acc = check_acc(clf, X_dev, y_dev)
+            except:
+                print('error')
+                # pdb.set_trace()
+            if dev_acc>max_dev_acc:
+                max_dev_acc = dev_acc
+                best_clf = clf
+                best_h_params=model_params
+            # print(f'params:{param_comb} ,dev_acc:{dev_acc:0.3f}, best_acc = {max_dev_acc:0.3f}     best_params = {best_h_params}')
+        train_acc = check_acc(clf, X_train, y_train)
+        # print(f'{model_type}->params:{best_h_params}, train_acc: {train_acc:0.3f}, dev_acc:{max_dev_acc:0.3f}', end = ', ')
+        test_acc = check_acc(best_clf, X_test, y_test)
+        # print(f'test_acc: {test_acc:0.3f}')
+        accs['train_acc'].append(train_acc)
+        accs['dev_acc'].append(dev_acc)
+        accs['test_acc'].append(test_acc)
+    print(model_type,end='\t')
+    print(f"train\t :{mean(accs['train_acc']):0.3f} +/- {std(accs['train_acc']):0.3f}",end='\t')
+    print(f"dev\t :{mean(accs['dev_acc']):0.3f} +/- {std(accs['dev_acc']):0.3f}",end='\t')
+    print(f"test\t :{mean(accs['test_acc']):0.3f} +/- {std(accs['test_acc']):0.3f}")
+    joblib.dump(accs, filename)
+    joblib.dump(best_clf, 'models/'+model_type+'.pkl')
+    # import pdb;pdb.set_trace();
+    return best_clf
 
+def mean(L):
+    return sum(L)/len(L)
 
+def std(L):
+    if len(L)<=1:
+        return 0
+    # import pdb;pdb.set_trace()
+    m=mean(L)
+    return (sum([(i-m)*(i-m) for i in L])/(len(L)-1))**0.5
