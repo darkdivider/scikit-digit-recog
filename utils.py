@@ -126,5 +126,3 @@ def tune_params(X_train, y_train, X_dev, y_dev, all_param_combs):
     train_acc = check_acc(clf, X_train, y_train)
     print(f'best_h_params : c: {c}, gamma: {gamma},\ntrain_acc: {train_acc:0.3f}, dev_acc:{max_dev_acc:0.3f}', end = ', ')
     return best_clf, best_h_params
-
-
