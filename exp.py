@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 
 # Import datasets, classifiers and performance metrics
 from sklearn import datasets
+from sklearn.metrics import confusion_matrix
 
 # utility functions
 import utils
@@ -28,14 +29,20 @@ print(f'Number of total samples in dataset: {digits.target.__len__()}');
 print(f'size of images: {digits.images[0].shape}')
 
 # combination sof test sizes and dev sizes
-test_sizes =[0.1, 0.2, 0.3];
-dev_sizes = [0.1,0.2,0.3];
+test_sizes =[0.2];
+dev_sizes = [0.2];
 test_dev_combs=sum([[(test_size, dev_size)for test_size in test_sizes]for dev_size in dev_sizes],[])
 
-# combination of hyperparamters
-Cs=[0.25, 0.5, 1, 2, 4, 8, 16]
-gammas = [0.00025, 0.0005, 0.001, 0.002, 0.004, 0.008, 0.0016]
-h_param_combs = utils.gen_hparams(Cs, gammas)
+h_param_combs={}
+# combination of hyperparamters for svm
+Cs=[1, 2, 4, 8]
+gammas = [0.00025, 0.0005, 0.001, 0.002]
+h_param_combs['svm'] = utils.gen_hparams([Cs, gammas])
+
+# combination of hyperparamters for decision tree
+criteria=['gini', 'entropy','log_loss']
+max_depths = [2,4,6,8,16,32,64,128]
+h_param_combs['tree'] = utils.gen_hparams([criteria, max_depths])
 
 # hyperparameter tuning
 test_acc=0

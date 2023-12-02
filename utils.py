@@ -1,11 +1,14 @@
 from sklearn import svm, metrics
+from sklearn.tree import DecisionTreeClassifier as dtc
+from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
+import joblib
+import os
 
 # flatten function for sklearn digits
 def flatten_X(X):
     return X.reshape(len(X),-1)
-
 
 # training on data based on training parameters
 def train(data, model_parameters, model='svc'):
@@ -15,6 +18,10 @@ def train(data, model_parameters, model='svc'):
     if model=='svc':
         # classifier is initiated as an svm with model parameters
         clf=svm.SVC(**model_parameters)
+    elif model=='tree':
+        # classifier is initiated as an tree with model parameters
+        clf = dtc(**model_parameters)
+        # pdb.set_trace()
     else:
         print(f'Model name "{model}" recieved. Not found.')
         return
@@ -101,13 +108,36 @@ def predict_and_eval(model, X_test, y_test):
         f"{metrics.classification_report(y_true, y_pred)}\n"
     )
 
-def gen_hparams(Cs, gammas):
-    h_params = sum([[(c,gamma) for c in Cs] for gamma in gammas],[])
-    return h_params
+def get_next_comb(comb_index, lens):
+    for i in range(len(lens)):
+        if comb_index[i]<lens[i]-1:
+            comb_index[i]+=1
+            while i:
+                i-=1
+                comb_index[i]=0
+            return comb_index
+    return None
 
-def train_dev_test_split(X, y, test_size, dev_size):
-    X_train, X_test, y_train, y_test = train_test_split(flatten_X(X),y, test_size=test_size+dev_size, shuffle=False)
-    X_test, X_dev,y_test, y_dev = train_test_split(X_test, y_test, test_size=test_size/(test_size+dev_size), shuffle=False)
+def get_combinations(params):
+    lens = [len(param) for param in params]
+    comb_index=[0 for _ in lens]
+    comb_indexes = [comb_index]
+    
+    while True:
+        comb_index=get_next_comb(list(comb_index), lens)
+        if comb_index!=None:
+            comb_indexes.append(comb_index)
+        else:
+            break
+    return [[params[i][j] for i,j in enumerate(comb_indexes[k])] for k in range(len(comb_indexes))]
+
+def gen_hparams(params_list):
+    return get_combinations(params_list)
+
+def train_dev_test_split(X, y, test_size, dev_size, shuffle):
+    X_train, X_test, y_train, y_test = train_test_split(flatten_X(X),y, test_size=test_size+dev_size, shuffle=shuffle)
+    X_test, X_dev,y_test, y_dev = train_test_split(X_test, y_test, test_size=test_size/(test_size+dev_size), shuffle=shuffle)
+    # pdb.set_trace()
     return X_train, X_dev, X_test, y_train, y_dev, y_test
 
 def tune_params(X_train, y_train, X_dev, y_dev, all_param_combs):
