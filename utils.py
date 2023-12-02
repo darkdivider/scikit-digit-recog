@@ -2,9 +2,14 @@ from sklearn import svm, metrics
 from sklearn.tree import DecisionTreeClassifier as dtc
 from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression as logreg
 import matplotlib.pyplot as plt
 import joblib
 import os
+import pdb
+import warnings
+
+warnings.filterwarnings("ignore")
 
 # flatten function for sklearn digits
 def flatten_X(X):
@@ -21,6 +26,10 @@ def train(data, model_parameters, model='svc'):
     elif model=='tree':
         # classifier is initiated as an tree with model parameters
         clf = dtc(**model_parameters)
+        # pdb.set_trace()
+    elif model=='lr':
+        # classifier is initiated as an tree with model parameters
+        clf = logreg(**model_parameters)
         # pdb.set_trace()
     else:
         print(f'Model name "{model}" recieved. Not found.')
@@ -145,40 +154,35 @@ def tune_params(X, y, test_size, dev_size, all_param_combs, model_type = 'svc', 
         os.makedirs('models')
     filename = 'models/accs_'+model_type+'.pkl'
     accs = {'train_acc':[],'dev_acc':[],'test_acc':[]}
-    for _ in range(10):
-        X_train, X_dev, X_test, y_train, y_dev, y_test = train_dev_test_split(X, y, test_size, dev_size, shuffle)
-        dev_acc=0
-        max_dev_acc=0
-        best_clf = None
-        best_h_params = None
-        for param_comb in all_param_combs:
-            model_params = {key:value for key,value in zip(param_key, param_comb)}
-            clf = train((X_train, y_train), model_params, model_type)
-            try:
-                dev_acc = check_acc(clf, X_dev, y_dev)
-            except:
-                print('error')
-                # pdb.set_trace()
-            if dev_acc>max_dev_acc:
-                max_dev_acc = dev_acc
-                best_clf = clf
-                best_h_params=model_params
-            # print(f'params:{param_comb} ,dev_acc:{dev_acc:0.3f}, best_acc = {max_dev_acc:0.3f}     best_params = {best_h_params}')
+    X_train, X_dev, X_test, y_train, y_dev, y_test = train_dev_test_split(X, y, test_size, dev_size, shuffle)
+    dev_acc=0
+    max_dev_acc=0
+    best_clf = None
+    best_h_params = None
+    for param_comb in all_param_combs:
+        model_params = {key:value for key,value in zip(param_key, param_comb)}
+        clf = train((X_train, y_train), model_params, model_type)
+        try:
+            dev_acc = check_acc(clf, X_dev, y_dev)
+        except:
+            print('error')
+        if dev_acc>max_dev_acc:
+            max_dev_acc = dev_acc
+            best_clf = clf
+            best_h_params=model_params
         train_acc = check_acc(clf, X_train, y_train)
-        # print(f'{model_type}->params:{best_h_params}, train_acc: {train_acc:0.3f}, dev_acc:{max_dev_acc:0.3f}', end = ', ')
         test_acc = check_acc(best_clf, X_test, y_test)
-        # print(f'test_acc: {test_acc:0.3f}')
         accs['train_acc'].append(train_acc)
         accs['dev_acc'].append(dev_acc)
         accs['test_acc'].append(test_acc)
-    print(model_type,end='\t')
-    print(f"train\t :{mean(accs['train_acc']):0.3f} +/- {std(accs['train_acc']):0.3f}",end='\t')
-    print(f"dev\t :{mean(accs['dev_acc']):0.3f} +/- {std(accs['dev_acc']):0.3f}",end='\t')
-    print(f"test\t :{mean(accs['test_acc']):0.3f} +/- {std(accs['test_acc']):0.3f}")
-    joblib.dump(accs, filename)
-    joblib.dump(best_clf, 'models/'+model_type+'.pkl')
-    # import pdb;pdb.set_trace();
+        print(param_comb[0]+' '*(15-len(param_comb[0])),end='\t')
+        print(f"train\t :{mean(accs['train_acc']):0.3f} +/- {std(accs['train_acc']):0.3f}",end='\t')
+        print(f"dev\t :{mean(accs['dev_acc']):0.3f} +/- {std(accs['dev_acc']):0.3f}",end='\t')
+        print(f"test\t :{mean(accs['test_acc']):0.3f} +/- {std(accs['test_acc']):0.3f}")
+        joblib.dump(best_clf, 'models/M20AIE239_'+model_type+'_'+param_comb[0]+'.joblib')
     return best_clf
+
+
 
 def mean(L):
     return sum(L)/len(L)
